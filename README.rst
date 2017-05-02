@@ -1,7 +1,9 @@
 Magento DB anonymizer
 =====================
 
-This is a shell script to anonymize a Magento database.
+This is a shell script to anonymize a Magento 2 database.
+
+**!!! THIS IS ALPHA DOCUMUMENTATION AND CODE !!!**
 
 Usage
 -----

@@ -2,7 +2,7 @@
 echo "*** This script is anonymizing a DB-dump of the LIVE-DB in the DEMO-Environment ***"
 
 PATH_TO_ROOT=$1
-if [[ "$PATH_TO_ROOT" == "" && -f "app/etc/local.xml" ]]; then
+if [[ "$PATH_TO_ROOT" == "" && -f "app/etc/env.php" ]]; then
   PATH_TO_ROOT="."
 fi
 if [[ "$PATH_TO_ROOT" == "" ]]; then
@@ -26,15 +26,15 @@ if [[ 1 < $# ]]; then
 fi
 
 
-while [[ ! -f $PATH_TO_ROOT/app/etc/local.xml ]]; do
+while [[ ! -f $PATH_TO_ROOT/app/etc/env.php ]]; do
   echo "$PATH_TO_ROOT is no valid Magento root folder. Please enter the correct path:"
   read PATH_TO_ROOT
 done
 
-HOST=`grep host $PATH_TO_ROOT/app/etc/local.xml | sed 's/ *<host>\(.*\)<\/host>/\1/' | sed 's/<!\[CDATA\[//' | sed 's/\]\]>//'`
-USER=`grep username $PATH_TO_ROOT/app/etc/local.xml | sed 's/ *<username>\(.*\)<\/username>/\1/' | sed 's/<!\[CDATA\[//' | sed 's/\]\]>//'`
-PASS=`grep password $PATH_TO_ROOT/app/etc/local.xml | sed 's/ *<password>\(.*\)<\/password>/\1/' | sed 's/<!\[CDATA\[//' | sed 's/\]\]>//'`
-NAME=`grep dbname $PATH_TO_ROOT/app/etc/local.xml | sed 's/ *<dbname>\(.*\)<\/dbname>/\1/' | sed 's/<!\[CDATA\[//' | sed 's/\]\]>//'`
+HOST=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['host']);"`
+USER=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['username']);"`
+PASS=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['password']);"`
+NAME=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['dbname']);"`
 
 if [[ -f "$CONFIG" ]]; then
   echo "Using configuration file $CONFIG"
@@ -72,21 +72,21 @@ fi
 if [[ "$RESET_ADMIN_PASSWORDS" == "y" || "$RESET_ADMIN_PASSWORDS" == "Y" || -z "$RESET_ADMIN_PASSWORDS" ]]; then
   RESET_ADMIN_PASSWORDS="y"
   # admin user
-  $DBCALL "UPDATE admin_user SET password=MD5(CONCAT(username,'123'))"
+  $DBCALL "UPDATE admin_user SET password=MD5(CONCAT(username,'123',':0'))"
 else
   RESET_ADMIN_PASSWORDS="n"
 fi
 
-if [[ -z "$RESET_API_PASSWORDS" ]]; then
-  echo "  Do you want me to reset API user passwords (Y/n)?"; read RESET_API_PASSWORDS
-fi
-if [[  "$RESET_API_PASSWORDS" == "y" || "$RESET_API_PASSWORDS" == "Y" || -z "$RESET_API_PASSWORDS" ]]; then
-  RESET_API_PASSWORDS="y"
-  # api user
-  $DBCALL "UPDATE api_user SET api_key=MD5(CONCAT(username,'123'))"
-else
-  RESET_API_PASSWORDS="n"
-fi
+#if [[ -z "$RESET_API_PASSWORDS" ]]; then
+#  echo "  Do you want me to reset API user passwords (Y/n)?"; read RESET_API_PASSWORDS
+#fi
+#if [[  "$RESET_API_PASSWORDS" == "y" || "$RESET_API_PASSWORDS" == "Y" || -z "$RESET_API_PASSWORDS" ]]; then
+#  RESET_API_PASSWORDS="y"
+#  # api user
+#  $DBCALL "UPDATE api_user SET api_key=MD5(CONCAT(username,'123'))"
+#else
+#  RESET_API_PASSWORDS="n"
+#fi
 
 if [[ -z "$ANONYMIZE" ]]; then
   echo "  Do you want me to anonymize your database (Y/n)?"; read ANONYMIZE
@@ -94,17 +94,12 @@ fi
 if [[ "$ANONYMIZE" == "y" || "$ANONYMIZE" == "Y" || -z "$ANONYMIZE" ]]; then
   ANONYMIZE="y"
   # customer address
-  ENTITY_TYPE="customer_address"
-  ATTR_CODE="firstname"
-  $DBCALL "UPDATE customer_address_entity_varchar SET value=CONCAT('firstname_',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
-  ATTR_CODE="lastname"
-  $DBCALL "UPDATE customer_address_entity_varchar SET value=CONCAT('lastname_',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
-  ATTR_CODE="telephone"
-  $DBCALL "UPDATE customer_address_entity_varchar SET value=CONCAT('0341 12345',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
-  ATTR_CODE="fax"
-  $DBCALL "UPDATE customer_address_entity_varchar SET value=CONCAT('0171 12345',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
-  ATTR_CODE="street"
-  $DBCALL "UPDATE customer_address_entity_text SET value=CONCAT(entity_id,' test avenue') WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
+#  ATTR_CODE="firstname"
+#  $DBCALL "UPDATE customer_address_entity SET value=CONCAT('firstname_',entity_id)"
+  $DBCALL "UPDATE customer_address_entity SET lastname=CONCAT('lastname_',entity_id)"
+  $DBCALL "UPDATE customer_address_entity SET telephone=CONCAT('0123 12345',entity_id)"
+  $DBCALL "UPDATE customer_address_entity SET fax=CONCAT('0123 12345-1',entity_id)"
+  $DBCALL "UPDATE customer_address_entity SET street=CONCAT('test avenue ', entity_id)"
 
   # customer account data
   if [[ -z "$KEEP_EMAIL" ]]; then
@@ -127,35 +122,43 @@ if [[ "$ANONYMIZE" == "y" || "$ANONYMIZE" == "Y" || -z "$ANONYMIZE" ]]; then
     KEEP_EMAIL='"none"'
   fi
 
-  ENTITY_TYPE="customer"
   $DBCALL "UPDATE customer_entity SET email=CONCAT('dev_',entity_id,'@trash-mail.com') WHERE email NOT IN ($KEEP_EMAIL)"
-  ATTR_CODE="firstname"
-  $DBCALL "UPDATE customer_entity_varchar SET value=CONCAT('firstname_',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
-  ATTR_CODE="lastname"
-  $DBCALL "UPDATE customer_entity_varchar SET value=CONCAT('lastname_',entity_id) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE'))"
+#  $DBCALL "UPDATE customer_entity SET firstname=CONCAT('firstname_',entity_id)"
+  $DBCALL "UPDATE customer_entity SET lastname=CONCAT('lastname_',entity_id)"
   ATTR_CODE="password_hash"
-  $DBCALL "UPDATE customer_entity_varchar v SET value=MD5(CONCAT('dev_',entity_id,'@trash-mail.com')) WHERE attribute_id=(select attribute_id from eav_attribute where attribute_code='$ATTR_CODE' and entity_type_id=(select entity_type_id from eav_entity_type where entity_type_code='$ENTITY_TYPE')) AND (SELECT email FROM customer_entity e WHERE e.entity_id=v.entity_id AND email NOT IN ($KEEP_EMAIL))"
+  $DBCALL "UPDATE customer_entity SET password_hash=MD5(CONCAT('dev_',entity_id,'@trash-mail.com', ':0')) WHERE email NOT IN ($KEEP_EMAIL)"
+
+  $DBCALL "UPDATE customer_grid_flat SET name=CONCAT('name_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET email=CONCAT('dev_',entity_id,'@trash-mail.com')"
+  $DBCALL "UPDATE customer_grid_flat SET shipping_full=CONCAT('shipping_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_full=CONCAT('billing_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_firstname=CONCAT('firstname_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_lastname=CONCAT('lastname_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_telephone=CONCAT('telefone_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_street=CONCAT('street_',entity_id)"
+  $DBCALL "UPDATE customer_grid_flat SET billing_fax='0123 12345-1' WHERE billing_fax != ''"
+  $DBCALL "UPDATE customer_grid_flat SET billing_company=CONCAT('company_',entity_id) WHERE billing_company != ''"
 
   # credit memo
-  $DBCALL "UPDATE sales_flat_creditmemo_grid SET billing_name='Demo User'"
+  $DBCALL "UPDATE sales_creditmemo_grid SET billing_name='Demo User'"
 
   # invoices
-  $DBCALL "UPDATE sales_flat_invoice_grid SET billing_name='Demo User'"
+  $DBCALL "UPDATE sales_invoice_grid SET billing_name='Demo User'"
 
   # shipments
-  $DBCALL "UPDATE sales_flat_shipment_grid SET shipping_name='Demo User'"
+  $DBCALL "UPDATE sales_shipment_grid SET shipping_name='Demo User'"
 
   # quotes
-  $DBCALL "UPDATE sales_flat_quote SET customer_email=CONCAT('dev_',entity_id,'@trash-mail.com'), customer_firstname='Demo', customer_lastname='User', customer_middlename='Dev', remote_ip='192.168.1.1', password_hash=NULL WHERE customer_email NOT IN ($KEEP_EMAIL)"
-  $DBCALL "UPDATE sales_flat_quote_address SET firstname='Demo', lastname='User', company=NULL, telephone=CONCAT('0123-4567', address_id), street=CONCAT('Devstreet ',address_id), email=CONCAT('dev_',address_id,'@trash-mail.com')"
+  $DBCALL "UPDATE quote SET customer_email=CONCAT('dev_',entity_id,'@trash-mail.com'), customer_firstname='Demo', customer_lastname='User', customer_middlename='Dev', remote_ip='192.168.1.1', password_hash=NULL WHERE customer_email NOT IN ($KEEP_EMAIL)"
+  $DBCALL "UPDATE quote_address SET firstname='Demo', lastname='User', company=NULL, telephone=CONCAT('0123-4567', address_id), street=CONCAT('Devstreet ',address_id), email=CONCAT('dev_',address_id,'@trash-mail.com')"
 
   # orders
-  $DBCALL "UPDATE sales_flat_order SET customer_email=CONCAT('dev_',entity_id,'@trash-mail.com'), customer_firstname='Demo', customer_lastname='User', customer_middlename='Dev'"
-  $DBCALL "UPDATE sales_flat_order_address SET email=CONCAT('dev_',entity_id,'@trash-mail.com'), firstname='Demo', lastname='User', company=NULL, telephone=CONCAT('0123-4567', entity_id), street=CONCAT('Devstreet ',entity_id)"
-  $DBCALL "UPDATE sales_flat_order_grid SET shipping_name='Demo D. User', billing_name='Demo D. User'"
+  $DBCALL "UPDATE sales_order SET customer_email=CONCAT('dev_',entity_id,'@trash-mail.com'), customer_firstname='Demo', customer_lastname='User', customer_middlename='Dev'"
+  $DBCALL "UPDATE sales_order_address SET email=CONCAT('dev_',entity_id,'@trash-mail.com'), firstname='Demo', lastname='User', company=NULL, telephone=CONCAT('0123-4567', entity_id), street=CONCAT('Devstreet ',entity_id)"
+  $DBCALL "UPDATE sales_order_grid SET shipping_name='Demo D. User', billing_name='Demo D. User'"
 
   # payments
-  $DBCALL "UPDATE sales_flat_order_payment SET additional_data=NULL, additional_information=NULL"
+  $DBCALL "UPDATE sales_order_payment SET additional_data=NULL, additional_information=NULL"
 
   # newsletter
   $DBCALL "UPDATE newsletter_subscriber SET subscriber_email=CONCAT('dev_newsletter_',subscriber_id,'@trash-mail.com') WHERE subscriber_email NOT IN ($KEEP_EMAIL)"
@@ -163,20 +166,20 @@ else
   ANONYMIZE="n"
 fi
 
-if [[ -z "$TRUNCATE_LOGS" ]]; then
-  echo "  Do you want me to truncate log tables (Y/n)?"; read TRUNCATE_LOGS
-fi
-if [[  "$TRUNCATE_LOGS" == "y" || "$TRUNCATE_LOGS" == "Y" || -z "$TRUNCATE_LOGS" ]]; then
-  TRUNCATE_LOGS="y"
-  # truncate unrequired tables
-  $DBCALL "TRUNCATE log_url"
-  $DBCALL "TRUNCATE log_url_info"
-  $DBCALL "TRUNCATE log_visitor"
-  $DBCALL "TRUNCATE log_visitor_info"
-  $DBCALL "TRUNCATE report_event"
-else
-  TRUNCATE_LOGS="n"
-fi
+#if [[ -z "$TRUNCATE_LOGS" ]]; then
+#  echo "  Do you want me to truncate log tables (Y/n)?"; read TRUNCATE_LOGS
+#fi
+#if [[  "$TRUNCATE_LOGS" == "y" || "$TRUNCATE_LOGS" == "Y" || -z "$TRUNCATE_LOGS" ]]; then
+#  TRUNCATE_LOGS="y"
+#  # truncate unrequired tables
+#  $DBCALL "TRUNCATE log_url"
+#  $DBCALL "TRUNCATE log_url_info"
+#  $DBCALL "TRUNCATE log_visitor"
+#  $DBCALL "TRUNCATE log_visitor_info"
+#  $DBCALL "TRUNCATE report_event"
+#else
+#  TRUNCATE_LOGS="n"
+#fi
 
 echo "* Step 2: Mod Config."
 # disable assets merging, google analytics and robots
@@ -185,20 +188,21 @@ if [[ -z "$DEMO_NOTICE" ]]; then
 fi
 if [[  "$DEMO_NOTICE" == "y" || "$DEMO_NOTICE" == "Y" || -z "$DEMO_NOTICE" ]]; then
   DEMO_NOTICE="y"
-  $DBCALL "UPDATE core_config_data SET value='1' WHERE path='design/head/demonotice'"
+  $DBCALL "REPLACE INTO core_config_data (value, path) VALUES ('1', 'design/head/demonotice')"
 else
   DEMO_NOTICE="n"
 fi
-$DBCALL "UPDATE core_config_data SET value='0' WHERE path='dev/css/merge_css_files' OR path='dev/js/merge_files'"
-$DBCALL "UPDATE core_config_data SET value='0' WHERE path='google/analytics/active'"
-$DBCALL "UPDATE core_config_data SET value='NOINDEX,NOFOLLOW' WHERE path='design/head/default_robots'"
+$DBCALL "REPLACE INTO core_config_data (value, path) VALUES ('0', 'dev/css/merge_css_files')"
+$DBCALL "REPLACE INTO core_config_data (value, path) VALUES ('0', 'dev/js/merge_files')"
+$DBCALL "REPLACE INTO core_config_data (value, path) VALUES ('0', 'google/analytics/active')"
+$DBCALL "REPLACE INTO core_config_data (value, path) VALUES ('NOINDEX,NOFOLLOW', 'design/head/default_robots')"
 
 # set mail receivers
-$DBCALL "UPDATE core_config_data SET value='contact-magento-dev@trash-mail.com' WHERE path='trans_email/ident_general/email'"
-$DBCALL "UPDATE core_config_data SET value='contact-magento-dev@trash-mail.com' WHERE path='trans_email/ident_sales/email'"
-$DBCALL "UPDATE core_config_data SET value='contact-magento-dev@trash-mail.com' WHERE path='trans_email/ident_support/email'"
-$DBCALL "UPDATE core_config_data SET value='contact-magento-dev@trash-mail.com' WHERE path='trans_email/ident_custom1/email'"
-$DBCALL "UPDATE core_config_data SET value='contact-magento-dev@trash-mail.com' WHERE path='trans_email/ident_custom2/email'"
+$DBCALL "REPLACE INTO  core_config_data (value, path) VALUES ('contact-magento-dev@trash-mail.com', 'trans_email/ident_general/email')"
+$DBCALL "REPLACE INTO  core_config_data (value, path) VALUES ('contact-magento-dev@trash-mail.com', 'trans_email/ident_sales/email')"
+$DBCALL "REPLACE INTO  core_config_data (value, path) VALUES ('contact-magento-dev@trash-mail.com', 'trans_email/ident_support/email')"
+$DBCALL "REPLACE INTO  core_config_data (value, path) VALUES ('contact-magento-dev@trash-mail.com', 'trans_email/ident_custom1/email')"
+$DBCALL "REPLACE INTO  core_config_data (value, path) VALUES ('contact-magento-dev@trash-mail.com', 'trans_email/ident_custom2/email')"
 
 # set base urls
 if [[ -z "$RESET_BASE_URLS" ]]; then
