@@ -287,8 +287,18 @@ function genRandomChar() {
 
   printf \\$(printf '%03o' $(($factor)))
 }
+
+if [[ -z "$RESET_INCREMENT_IDS" ]]; then
+  echo "  Do you want me to randomize increment ids (Y/n)?"; read RESET_INCREMENT_IDS
+fi
+if [[ "$RESET_INCREMENT_IDS" == "y" || "$RESET_INCREMENT_IDS" == "Y" || -z "$RESET_INCREMENT_IDS" ]]; then
 PREFIX="`genRandomChar``genRandomChar``genRandomChar`"
 $DBCALL "UPDATE eav_entity_store SET increment_last_id=NULL, increment_prefix=CONCAT(store_id, '-', '$PREFIX', '-')"
+else
+RESET_INCREMENT_IDS='n'
+fi
+
+
 
 # set test mode everywhere
 $DBCALL "UPDATE core_config_data SET value='test' WHERE value LIKE 'live'"
@@ -342,6 +352,7 @@ if [[ ! -f $CONFIG ]]; then
       echo "PAYONE_KEY=$PAYONE_KEY">>$CONFIG
     fi
     echo "RESET_BASE_URLS=$RESET_BASE_URLS">>$CONFIG
+    echo "RESET_INCREMENT_IDS=$RESET_INCREMENT_IDS">>$CONFIG
     echo "SPECIFIC_BASE_URLS=$SPECIFIC_BASE_URLS">>$CONFIG
     if [[ ! -z $SCOPES ]]; then
       echo "SCOPES=(${SCOPES[@]})">>$CONFIG
