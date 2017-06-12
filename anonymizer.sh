@@ -31,7 +31,15 @@ while [[ ! -f $PATH_TO_ROOT/app/etc/env.php ]]; do
   read PATH_TO_ROOT
 done
 
-HOST=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['host']);"`
+HOST_PORT=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['host']);"`
+
+HOST="$(echo $HOST_PORT | cut -d':' -f1)"
+PORT="$(echo $HOST_PORT | cut -d':' -f2)"
+
+if [ "$HOST" = "$PORT" ]; then
+    PORT="";
+fi
+
 USER=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['username']);"`
 PASS=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['password']);"`
 NAME=`php -r "\\$env = include '${PATH_TO_ROOT}/app/etc/env.php'; print_r(\\$env['db']['connection']['default']['dbname']);"`
@@ -58,11 +66,18 @@ else
     fi
 fi
 
-if [ "$PASS" = "" ]; then
-    DBCALL="mysql -u$USER -h$HOST $NAME -e"
-else
-    DBCALL="mysql -u$USER -p$PASS -h$HOST $NAME -e"
+DBCALL="mysql -u$USER -h$HOST";
+
+if [ "$PASS" != "" ]; then
+    DBCALL=" $DBCALL -p$PASS"
 fi
+
+if [ "$PORT" != "" ]; then
+    DBCALL=" $DBCALL --port=$PORT"
+fi
+
+
+DBCALL="$DBCALL -h$HOST $NAME -e"
 
 echo "* Step 1: Anonymize Names and eMails"
 
